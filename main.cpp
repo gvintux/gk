@@ -1,4 +1,6 @@
 #include <iostream>
+#include <iomanip>
+#include <cfloat>
 
 using namespace std;
 typedef double (*integrand_1d) (double, void*);
@@ -55,6 +57,7 @@ int main()
 {
     double res;
     integrate_1d_gk(15, gk15_roots, g7_weights, gk15_weights, fun, 0, 1, 3, &res, 0, 0, 0);
+    cout << setprecision(DBL_DIG);
     cout << res << endl;
     return 0;
 }
