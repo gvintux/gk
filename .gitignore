@@ -1,3 +1,7 @@
+#cmake
+cmake-build-*
+#Idea
+.idea
 # Compiled Object files
 *.slo
 *.lo
