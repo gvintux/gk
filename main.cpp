@@ -1,9 +1,12 @@
 #include <iostream>
 #include <iomanip>
 #include <cfloat>
+#include <cmath>
 
 using namespace std;
 typedef double (*integrand_1d) (double, void*);
+typedef double (*integrand_2d) (double, double, void*);
+
 
 const double gk15_roots [] =
 {
@@ -38,7 +41,12 @@ const double g7_weights [] =
 
 double fun(double x, void *args)
 {
-    return x*x;
+    return 1/(1+x*x);
+}
+
+double fun2(double x, double y, void *args)
+{
+    return x+y;
 }
 
 void integrate_1d_gk(const int n, const double gk_roots[], const double g_weights[], const double gk_weights[],
@@ -47,17 +55,82 @@ void integrate_1d_gk(const int n, const double gk_roots[], const double g_weight
 {
     const double half = (b-a) / 2.0;
     const double middle = (a + b) / 2.0;
-    double k_result = gk_weights[0] * f(gk_roots[0] * half + middle, args);
-    for(int i = 1; i <= n / 2; ++i) k_result += gk_weights[i] * (f(gk_roots[i] * half + middle, args) +  f(-gk_roots[i] * half + middle, args));
+    double f_middle = f(gk_roots[0] * half + middle, args);
+    double k_result = gk_weights[0] * f_middle;
+    double g_result = g_weights[0] * f_middle;
+
+    for(int i = 1; i < n / 4 + 1; ++i)
+    {
+        double f_p = f(gk_roots[i * 2] * half + middle, args);
+        double f_m = f(-gk_roots[i * 2] * half + middle, args);
+        g_result += g_weights[i] * (f_p + f_m);
+        k_result += gk_weights[i * 2] * (f_p + f_m);
+    }
+
+    for(int i = 0; i < n / 4 + 1; ++i)
+    {
+        double f_p = f(gk_roots[2 * i + 1] * half + middle, args);
+        double f_m = f(-gk_roots[2 * i + 1] * half + middle, args);
+        k_result += gk_weights[2 * i + 1] * (f_p + f_m);
+    }
     k_result *= half;
+    g_result *= half;
     (*result) = k_result;
+    (*abserr) = pow(200 * fabs(g_result - k_result), 1.5);
+}
+
+void integrate_2d_gk(const int n, const double gk_roots[], const double g_weights[], const double gk_weights[],
+                     const integrand_2d f, void *args, double a, double b, double c, double d, double *result, double *abserr,
+                     double *resabs, double *resasc)
+{
+    const double half_x = (b-a) / 2.0;
+    const double middle_x = (a + b) / 2.0;
+    const double half_y = (d-c) / 2.0;
+    const double middle_y = (c + d) / 2.0;
+    double f_middle = f(gk_roots[0] * half_x + middle_x, gk_roots[0] * half_y + middle_y, args);
+    double k_result = gk_weights[0] * gk_weights[0] * f_middle;
+    double g_result = g_weights[0] * g_weights[0] * f_middle;
+    for(int i = 1; i < n / 4 + 1; ++i)
+    {
+        double x = gk_roots[i * 2] * half_x + middle_x;
+        for(int j = 1; j < n / 4 + 1; ++j)
+        {
+            double y = gk_roots[j * 2] * half_x + middle_x;
+            double f_pp = f(x, y, args);
+            double f_pm = f(x, -y, args);
+            double f_mp = f(-x, y, args);
+            double f_mm = f(-x, -y, args);
+            g_result += g_weights[i] * g_weights[j] * (f_pp + f_pm + f_mp + f_mm);
+            k_result += gk_weights[i * 2] * gk_weights[j * 2] * (f_pp + f_pm + f_mp + f_mm);
+        }
+    }
+
+    for(int i = 0; i < n / 4 + 1; ++i)
+    {
+        double x = gk_roots[2*i + 1] * half_x + middle_x;
+        for(int j = 0; j < n / 4 + 1; ++j)
+        {
+            double y = gk_roots[2*j + 1] * half_y + middle_y;
+            double f_pp = f(x, y, args);
+            double f_pm = f(x, -y, args);
+            double f_mp = f(-x, y, args);
+            double f_mm = f(-x, -y, args);
+            k_result += gk_weights[2*i + 1] * gk_weights[2*j + 1] * (f_pp + f_pm + f_mp + f_mm);
+        }
+    }
+    k_result *= half_x * half_y;
+    g_result *= half_x * half_y;
+    (*result) = g_result;
+    (*abserr) = pow(200 * fabs(g_result - k_result), 1.5);
 }
 
 int main()
 {
-    double res;
-    integrate_1d_gk(15, gk15_roots, g7_weights, gk15_weights, fun, 0, 1, 3, &res, 0, 0, 0);
-    cout << setprecision(DBL_DIG);
+    double res, abserr;
+    integrate_2d_gk(15, gk15_roots, g7_weights, gk15_weights, fun2, 0, 0, 1, 0, 1,  &res, &abserr, 0, 0);
+    cout << setprecision(DBL_DIG*2);
     cout << res << endl;
+    cout << abserr << endl;
+    cout << (abserr > DBL_EPSILON) << endl;
     return 0;
 }
